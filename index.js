@@ -7,14 +7,11 @@ const WebpackSourceMapSupport = require('webpack-source-map-support')
 const path = require('path')
 const rimraf = require('rimraf')
 const project_root = process.cwd()
-const babel_loader = require('babel-loader')
-const babel_core = require('@babel/core')
 const babel_preset_env = require('@babel/preset-env')
 const babel_preset_react = require('@babel/preset-react')
+const babel_plugin_transform_runtime = require('@babel/plugin-transform-runtime')
 
-console.log("project_root = ", project_root)
 process.chdir(project_root)
-console.log("process.cwd() = ", process.cwd())
 const readline_sync = require('readline-sync')
 rimraf.sync(project_root + '/build/**')
 
@@ -27,14 +24,20 @@ const package = require(project_root + '/package.json')
 const still_required = [
   'babel-polyfill',
   'source-map-support',
-  'babel-loader@^8.0.0-beta',
+  ['babel-loader', '^8.0.0-beta'],
   '@babel/core',
-].filter(dep => !(dep in (package.dependencies || {}) || dep in (package.devDependencies || {})))
+  '@babel/runtime',
+  '@babel/plugin-proposal-decorators',
+].filter(dep =>  {
+  if (Array.isArray(dep))
+    dep = dep[0]
+    return !(dep in (package.dependencies || {}) || dep in (package.devDependencies || {}))
+}).map(dep => Array.isArray(dep) && typeof dep[1] === 'string' ? dep[0] + '@' + dep[1] : dep)
 
 ;(async () => {
 let l;
 if (l = still_required.length) {
-  const install = readline_sync.question("We've detected that you still required the dependencies " + still_required.slice(0, l - 2).join(", ") + "and " + still_required[l - 1] + " would you like to install them now? y/n\n")
+  const install = readline_sync.question("We've detected that you still required the dependencies " + still_required.slice(0, l - 2).join(", ") + (l > 1 ? "and " : "") + still_required[l - 1] + " would you like to install them now? y/n\n")
   if (install[0] === 'y' || check_args_bool(['--yes', '-y'])) {
     const args = [using_yarn() ? 'add' : 'i'].concat(still_required)
     await new Promise((rej, res) => {
@@ -60,7 +63,11 @@ let babel_opts = {
   presets: [
     babel_preset_env,
     babel_preset_react,
-  ]
+  ],
+  plugins: [
+    babel_plugin_transform_runtime,
+    ['@babel/plugin-proposal-decorators', { legacy: true }],
+  ],
 }
 if (babelrc_exists) {
   const babelrc = fs.readFileSync(babelrc_path)
