@@ -1,0 +1,37 @@
+{
+  "name": "webpack-now",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "webpack-now": "./index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@babel/core": "^7.0.0-beta.49",
+    "@babel/plugin-transform-runtime": "^7.0.0-beta.49",
+    "@babel/polyfill": "^7.0.0-beta.49",
+    "@babel/preset-env": "^7.0.0-beta.49",
+    "@babel/preset-react": "^7.0.0-beta.49",
+    "babel-loader": "^8.0.0-beta",
+    "babel-polyfill": "^6.26.0",
+    "babel-preset-react": "^6.24.1",
+    "clean-webpack-plugin": "^0.1.19",
+    "css-loader": "^0.28.11",
+    "fs-extra": "^6.0.1",
+    "mini-css-extract-plugin": "^0.4.0",
+    "react": "^16.4.0",
+    "react-dom": "^16.4.0",
+    "react-svg-loader": "^2.1.0",
+    "readline-sync": "^1.4.9",
+    "rimraf": "^2.6.2",
+    "source-map-support": "^0.5.6",
+    "webpack": "^4.12.0",
+    "webpack-source-map-support": "^2.0.1"
+  }
+}
