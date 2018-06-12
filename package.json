@@ -1,16 +1,18 @@
 {
-  "name": "webpack-now",
-  "version": "1.0.0",
+  "name": "wp-now",
+  "version": "1.0.3",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "bump": "npm-bump minor"
   },
   "bin": {
     "webpack-now": "./index.js"
   },
   "keywords": [],
   "author": "",
+  "repository": "zwhitchcox/wp-now",
   "license": "ISC",
   "dependencies": {
     "@babel/core": "^7.0.0-beta.49",
@@ -25,6 +27,7 @@
     "css-loader": "^0.28.11",
     "fs-extra": "^6.0.1",
     "mini-css-extract-plugin": "^0.4.0",
+    "npm-bump": "^0.0.23",
     "react": "^16.4.0",
     "react-dom": "^16.4.0",
     "react-svg-loader": "^2.1.0",
