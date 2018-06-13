@@ -1,6 +1,6 @@
 {
   "name": "wp-now",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "bump": "npm-bump minor"
   },
   "bin": {
-    "webpack-now": "./index.js"
+    "wp-now": "./index.js"
   },
   "keywords": [],
   "author": "",
@@ -28,6 +28,7 @@
     "fs-extra": "^6.0.1",
     "mini-css-extract-plugin": "^0.4.0",
     "npm-bump": "^0.0.23",
+    "npm-install-webpack-plugin": "^4.0.5",
     "react": "^16.4.0",
     "react-dom": "^16.4.0",
     "react-svg-loader": "^2.1.0",
