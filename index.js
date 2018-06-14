@@ -1,37 +1,29 @@
 #!/usr/bin/env node
-const webpack = require('webpack')
-const cp = require('child_process')
-const fs = require('fs')
-const MiniCssExtractPlugin = require('mini-css-extract-plugin')
-const WebpackSourceMapSupport = require('webpack-source-map-support')
-const NpmInstallPlugin = require('npm-install-webpack-plugin')
-const path = require('path')
-const rimraf = require('rimraf')
-const project_root = process.cwd()
-const babel_preset_env = require('@babel/preset-env')
-const babel_preset_react = require('@babel/preset-react')
-const babel_plugin_transform_runtime = require('@babel/plugin-transform-runtime')
-
-process.chdir(project_root)
-const readline_sync = require('readline-sync')
-rimraf.sync(project_root + '/build/**')
-
-const build_path = check_args(['-b', '--build']) || project_root + '/build'
-const server_path = check_args(['-s', '--server']) ||  project_root + '/server.js'
-const client_path = check_args(['-c', '--client']) ||  project_root + '/client.js'
-const install_auto = check_args(['-a', '--auto-install']) ||  project_root + '/client.js'
-const package = require(project_root + '/package.json')
 ;(async () => {
-  
+  const project_root = process.cwd()
+  const package = require(project_root + '/package.json')
+
+  const cp = require('child_process')
+  const fs = require('fs')
+  const path = require('path')
   await try_install([
+    'rimraf',
     '@babel/core',
     'babel-polyfill',
+    'mini-css-extract-plugin',
+    'webpack-source-map-support',
+    'webpack',
+    '@babel/preset-env',
+    '@babel/preset-react',
+    '@babel/plugin-transform-runtime',
     'css-loader',
     'url-loader',
     'react-svg-loader',
     'source-map-support',
+    'webpack-plugin-install-deps',
     ['babel-loader', '^8.0.0-beta'],
     '@babel/runtime',
+    'clean-webpack-plugin',
     '@babel/preset-react',
     '@babel/plugin-proposal-class-properties',
     '@babel/plugin-proposal-decorators',
@@ -39,6 +31,26 @@ const package = require(project_root + '/package.json')
     .filter(check_dep)
     .map(dep => Array.isArray(dep) && typeof dep[1] === 'string' ? dep[0] + '@' + dep[1] : dep)
   )
+  const require_root = mod => require(path.resolve(project_root, 'node_modules', mod))
+
+  const webpack = require_root('webpack')
+  const rimraf = require_root('rimraf')
+  const MiniCssExtractPlugin = require_root('mini-css-extract-plugin')
+  const WebpackSourceMapSupport = require_root('webpack-source-map-support')
+  const InstallDeps = require_root('webpack-plugin-install-deps')
+  const Clean = require_root('clean-webpack-plugin')
+  const babel_preset_env = require_root('@babel/preset-env')
+  const babel_preset_react = require_root('@babel/preset-react')
+  const babel_plugin_transform_runtime = require_root('@babel/plugin-transform-runtime')
+  const babel_plugin_proposal_class_properties = require_root('@babel/plugin-proposal-class-properties')
+
+  rimraf.sync(project_root + '/build/**')
+
+  const build_path = check_args(['-b', '--build']) || project_root + '/build'
+  const server_path = check_args(['-s', '--server']) ||  project_root + '/server.js'
+  const client_path = check_args(['-c', '--client']) ||  project_root + '/client.js'
+  const install_auto = check_args(['-a', '--auto-install']) ||  project_root + '/client.js'
+  
 
   const babelrc_path = project_root + '/.babelrc'
 
@@ -46,10 +58,17 @@ const package = require(project_root + '/package.json')
   const server_exists = fs.existsSync(server_path)
   const babelrc_exists = fs.existsSync(babelrc_path)
 
-  function Clean() {}
-  Clean.prototype.apply = function(compiler) {
-    compiler.hooks.compile.tap('clean-webpack-plugin', () => rimraf.sync(project_root + '/build/**'))
-  }
+  //function Clean() {}
+  //Clean.prototype.apply = function(compiler) {
+  //  /*** implement if need to remove stuff in the future ***/
+
+  //  //compiler.hooks.beforeCompile.tapAsync('clean-webpack-plugin', (_, next) => {
+  //    //rimraf(project_root + '/build/**/*hot-updat', {}, () => {
+  //      //console.log('done removing')
+  //      //next()
+  //    //})
+  //  //})
+  //}
   let babel_opts = {
     presets: [
       babel_preset_env,
@@ -59,6 +78,7 @@ const package = require(project_root + '/package.json')
       babel_plugin_transform_runtime,
       ['@babel/plugin-proposal-decorators', { legacy: true }],
       ['@babel/plugin-proposal-class-properties', { loose: true}],
+
     ],
   }
   if (babelrc_exists) {
@@ -116,16 +136,13 @@ const package = require(project_root + '/package.json')
         }
       ]
     },
-    resolve: {
-      extensions: ['*', '.js', '.jsx']
-    },
     output: {
       path: build_path,
       publicPath: '/',
       filename: 'client.js'
     },
     plugins: [
-      new NpmInstallPlugin({
+      new InstallDeps({
         dev: false,
         peerDependencies: true,
         quiet: false,
@@ -135,7 +152,16 @@ const package = require(project_root + '/package.json')
         filename: "main.css",
         chunkFilesname: "[id].css",
       }),
-      new Clean,
+      new Clean(
+        ['build'],
+        {
+          root: process.cwd(),
+          exclude: ['server.js', 'server.js.map'],
+          beforeEmit: true,
+          watch: true,
+          verbose: false,
+        },
+      ),
       new webpack.DefinePlugin({
         'process.env.BROWSER': true,
         'process.env.SERVER': false,
@@ -170,23 +196,28 @@ const package = require(project_root + '/package.json')
         }
       ]
     },
-    resolve: {
-      extensions: ['*', '.js', '.jsx'],
-      modules: [path.resolve(__dirname, 'node_modules'), project_root + '/node_modules', project_root],
-    },
     output: {
-      path: project_root + '/build',
+      path: build_path,
       publicPath: '/',
       filename: 'server.js'
     },
     plugins: [
-      new NpmInstallPlugin({
+      new InstallDeps({
         dev: false,
         peerDependencies: true,
         quiet: false,
         yarn: true,
       }),
-      new Clean,
+      new Clean(
+        ['build'],
+        {
+          root: process.cwd(),
+          exclude: ['client.js', 'client.map.js','main.css'],
+          beforeEmit: true,
+          verbose: false,
+          watch: true,
+        },
+      ),
       new webpack.DefinePlugin({
         'process.env.BROWSER': false,
         'process.env.SERVER': true,
@@ -205,6 +236,8 @@ const package = require(project_root + '/package.json')
 
   if (!(server_exists || client_exists)) {
     throw new Error('neither client, nor server files were found')
+  } else {
+    console.log('building...')
   }
 
   let server;
@@ -228,6 +261,7 @@ const package = require(project_root + '/package.json')
       aggregateTimeout: 300,
       poll: undefined
     }, (err, stats) => {
+      console.log("server built...")
       if (server_exists) start_server()
       if (err || stats.hasErrors()) {
         stats && stats.toJson()
@@ -241,7 +275,7 @@ const package = require(project_root + '/package.json')
       aggregateTimeout: 300,
       poll: undefined
     }, (err, stats) => {
-      console.log("client built")
+      console.log("client built...")
       if (err || stats.hasErrors()) {
         stats && stats.toJson()
       } else {
@@ -249,66 +283,63 @@ const package = require(project_root + '/package.json')
       }
     })
   }
-  
-})()
 
-
-
-
-function check_args(check_arg) {
-  check_arg = [].concat(check_arg)
-  const args = process.argv.slice(2)
-  let idx;
-  let passed;
-  if (~(idx = args.findIndex(arg => check_arg.includes(arg)))) {
-    passed = process.argv[idx + 3]
+  function check_args(check_arg) {
+    check_arg = [].concat(check_arg)
+    const args = process.argv.slice(2)
+    let idx;
+    let passed;
+    if (~(idx = args.findIndex(arg => check_arg.includes(arg)))) {
+      passed = process.argv[idx + 3]
+    }
+    if (!passed) return
+    if (passed[0] === path.delimiter) {
+      return passed
+    }
+    return path.resolve(project_root, passed)
   }
-  if (!passed) return
-  if (passed[0] === path.delimiter) {
-    return passed
+
+  function check_args_bool(check_arg) {
+    const args = process.argv.slice(2)
+    return args.some(arg => check_arg.includes(arg))
   }
-  return path.resolve(project_root, passed)
-}
 
-function check_args_bool(check_arg) {
-  const args = process.argv.slice(2)
-  return args.some(arg => check_arg.includes(arg))
-}
-
-function using_yarn() {
-  if (fs.existsSync(project_root + '/yarn.lock')) return true
-}
-
-
-async function try_install(deps) {
-  console.log("deps = ", deps)
-  if (l = deps.length) {
-    const args = [using_yarn() ? 'add' : 'i'].concat([using_yarn() ? '--dev' : '--save-dev']).concat(deps)
-    await new Promise((rej, res) => {
-      const proc = cp.spawn(using_yarn() ? 'yarn' : 'npm', args, {
-        stdio: 'inherit',
-        cwd: project_root,
-      })
-      proc.on('exit', () => console.log('done installing') || res())
-    }).catch(console.error)
+  function using_yarn() {
+    if (fs.existsSync(project_root + '/yarn.lock')) return true
   }
-}
 
-function check_dep(dep) {
-  if (Array.isArray(dep)) {
-    const version = dep[1]
-    dep = dep[0]
-    if (dep in (package.dependencies || {})) {
-      const cur_major      = +(/\d/.exec(package.dependencies[dep])[0])
-      const required_major = +(/\d/.exec(version)[0])
-      return cur_major <= required_major
-    } else if (dep in (package.devDependencies || {})) {
-      const cur_major      = +(/\d/.exec(package.devDependencies[dep])[0])
-      const required_major = +(/\d/.exec(version)[0])
-      return cur_major <= required_major
-    } else {
-      return true 
+
+  async function try_install(deps) {
+    if (l = deps.length) {
+      console.log("Installing " + deps.slice(0, l - 2).join(", ") + (l > 1 ? "and " : "") + deps[l - 1])
+      const args = [using_yarn() ? 'add' : 'i'].concat([using_yarn() ? '--dev' : '--save-dev']).concat(deps)
+      await new Promise((rej, res) => {
+        const proc = cp.spawn(using_yarn() ? 'yarn' : 'npm', args, {
+          stdio: 'inherit',
+          cwd: project_root,
+        })
+        proc.on('exit', () => console.log('done installing') || res())
+      }).catch(console.error)
     }
   }
+
+  function check_dep(dep) {
+    if (Array.isArray(dep)) {
+      const version = dep[1]
+      dep = dep[0]
+      if (dep in (package.dependencies || {})) {
+        const cur_major      = +(/\d/.exec(package.dependencies[dep])[0])
+        const required_major = +(/\d/.exec(version)[0])
+        return cur_major < required_major
+      } else if (dep in (package.devDependencies || {})) {
+        const cur_major      = +(/\d/.exec(package.devDependencies[dep])[0])
+        const required_major = +(/\d/.exec(version)[0])
+        return cur_major < required_major
+      } else {
+        return true 
+      }
+    }
     else return !(dep in (package.dependencies || {}) || dep in (package.devDependencies || {}))
-}
+  }
+  
+})()
