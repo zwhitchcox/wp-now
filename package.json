@@ -1,6 +1,6 @@
 {
   "name": "wp-now",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -14,7 +14,9 @@
   "author": "",
   "repository": "zwhitchcox/wp-now",
   "license": "ISC",
-  "dependencies": {},
+  "dependencies": {
+    "mkdirp": "^0.5.1"
+  },
   "devDependencies": {},
   "peerDependencies": {}
 }

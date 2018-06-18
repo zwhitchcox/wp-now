@@ -1,13 +1,35 @@
 #!/usr/bin/env node
+const cp = require('child_process')
+const fs = require('fs')
+const path = require('path')
+let foobar;
 ;(async () => {
-  const project_root = process.cwd()
-  const package = require(project_root + '/package.json')
 
-  const cp = require('child_process')
-  const fs = require('fs')
-  const path = require('path')
+  let proj_name;
+  let project_root = process.cwd();
+  if (proj_name = check_args(['-c', '--create'])) {
+    project_root =  process.cwd() + '/' + proj_name
+    await new Promise((res, rej) => {
+      const mkdirp = require('mkdirp')
+      mkdirp(project_root, function(err) {
+        if (err) rej(err)
+        else console.log('Created project directory') || res()
+      })
+    })
+    await new Promise((res, rej) => {
+      cp.spawn('npm', ['init', '-y'], {
+        stdio: 'inherit',
+        cwd: project_root,
+      }).on('exit', err => {
+        if (err) rej(err)
+
+        else console.log('Initialized project') || res()
+      })
+    })
+  }
+  process.chdir(project_root)
+  const package = require(project_root + '/package.json')
   await try_install([
-    'rimraf',
     '@babel/core',
     'babel-polyfill',
     'mini-css-extract-plugin',
@@ -27,29 +49,43 @@
     '@babel/preset-react',
     '@babel/plugin-proposal-class-properties',
     '@babel/plugin-proposal-decorators',
+    'webpack-node-externals',
+    'ncp',
   ]
     .filter(check_dep)
     .map(dep => Array.isArray(dep) && typeof dep[1] === 'string' ? dep[0] + '@' + dep[1] : dep)
   )
   const require_root = mod => require(path.resolve(project_root, 'node_modules', mod))
 
+  const ncp = require_root('ncp').ncp
   const webpack = require_root('webpack')
-  const rimraf = require_root('rimraf')
   const MiniCssExtractPlugin = require_root('mini-css-extract-plugin')
   const WebpackSourceMapSupport = require_root('webpack-source-map-support')
   const InstallDeps = require_root('webpack-plugin-install-deps')
   const Clean = require_root('clean-webpack-plugin')
+  const nodeExternals = require_root('webpack-node-externals');
   const babel_preset_env = require_root('@babel/preset-env')
   const babel_preset_react = require_root('@babel/preset-react')
   const babel_plugin_transform_runtime = require_root('@babel/plugin-transform-runtime')
   const babel_plugin_proposal_class_properties = require_root('@babel/plugin-proposal-class-properties')
 
-  rimraf.sync(project_root + '/build/**')
+  let install_type;
+  if (install_type = check_args(['-i', '--install'])) {
+    await new Promise((res, rej) => {
+      ncp(__dirname + '/sample-files/' + install_type, process.cwd() + '/src', {
+        stopOnErr: true,
+        clobber: false,
+      }, err => {
+        if (err) rej(err)
+        else console.log('Created starter files') || res()
+      })
+    })
+  }
 
   const build_path = check_args(['-b', '--build']) || project_root + '/build'
-  const server_path = check_args(['-s', '--server']) ||  project_root + '/server.js'
-  const client_path = check_args(['-c', '--client']) ||  project_root + '/client.js'
-  const install_auto = check_args(['-a', '--auto-install']) ||  project_root + '/client.js'
+  const server_path = check_args(['-s', '--server']) ||  project_root + '/src/server.js'
+  const client_path = check_args(['-c', '--client']) ||  project_root + '/src/client.js'
+  console.log("client_path = ", client_path)
   
 
   const babelrc_path = project_root + '/.babelrc'
@@ -58,17 +94,15 @@
   const server_exists = fs.existsSync(server_path)
   const babelrc_exists = fs.existsSync(babelrc_path)
 
-  //function Clean() {}
-  //Clean.prototype.apply = function(compiler) {
-  //  /*** implement if need to remove stuff in the future ***/
+  const output_opts = {
+    colors: { level: 3, hasBasic: true, has256: true, has16m: true },
+    cached: false,
+    cachedAssets: false,
+    entrypoints: false,
+    exclude: [ 'node_modules', 'bower_components', 'components' ],
+    infoVerbosity: 'info'
+  }
 
-  //  //compiler.hooks.beforeCompile.tapAsync('clean-webpack-plugin', (_, next) => {
-  //    //rimraf(project_root + '/build/**/*hot-updat', {}, () => {
-  //      //console.log('done removing')
-  //      //next()
-  //    //})
-  //  //})
-  //}
   let babel_opts = {
     presets: [
       babel_preset_env,
@@ -225,6 +259,7 @@
       new WebpackSourceMapSupport(),
     ],
     target: 'node',
+    externals: [nodeExternals()],
     devtool: 'source-map',
     mode: 'development',
     context: project_root,
@@ -261,13 +296,8 @@
       aggregateTimeout: 300,
       poll: undefined
     }, (err, stats) => {
-      console.log("server built...")
+      console.log(stats.toString(output_opts))
       if (server_exists) start_server()
-      if (err || stats.hasErrors()) {
-        stats && stats.toJson()
-      } else {
-        stats.toJson('minimal')
-      }
     })
   }
   if (client_exists) {
@@ -275,12 +305,7 @@
       aggregateTimeout: 300,
       poll: undefined
     }, (err, stats) => {
-      console.log("client built...")
-      if (err || stats.hasErrors()) {
-        stats && stats.toJson()
-      } else {
-        stats.toJson('minimal')
-      }
+      console.log(stats.toString(output_opts))
     })
   }
 
@@ -290,13 +315,12 @@
     let idx;
     let passed;
     if (~(idx = args.findIndex(arg => check_arg.includes(arg)))) {
-      passed = process.argv[idx + 3]
+      return args[idx + 1]
     }
     if (!passed) return
     if (passed[0] === path.delimiter) {
       return passed
     }
-    return path.resolve(project_root, passed)
   }
 
   function check_args_bool(check_arg) {
@@ -342,4 +366,5 @@
     else return !(dep in (package.dependencies || {}) || dep in (package.devDependencies || {}))
   }
   
-})()
+})().catch(console.error)
+
